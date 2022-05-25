@@ -1,0 +1,11 @@
+---
+- name: Provision web
+  hosts: webserver
+  gather_facts: false
+  become: true
+
+  vars:
+    project_path: /home/ubuntu/geekshop
+
+  roles:
+    - web

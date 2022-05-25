@@ -1,0 +1,35 @@
+---
+- name: start nginx
+  systemd:
+    name: nginx
+    state: started
+
+- name: restart nginx
+  systemd:
+    name: nginx
+    state: restarted
+    enabled: yes
+
+- name: enable and start gunicorn
+  systemd:
+    name: gunicorn
+    enabled: yes
+    state: started
+
+- name: restart gunicorn
+  systemd:
+    name: gunicorn
+    daemon_reload: yes
+    enabled: yes
+    state: restarted
+
+- name: Start postgres
+  service:
+    name: postgresl
+    enabled: yes
+    state: started
+
+- name: Restart postgres
+  service:
+    name: postgresl
+    state: restarted

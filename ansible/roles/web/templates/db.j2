@@ -1,0 +1,4 @@
+CREATE DATABASE geekshop;
+CREATE USER django with NOSUPERUSER PASSWORD 'geekbrains'; GRANT ALL PRIVILEGES ON DATABASE geekshop TO django;
+ALTER ROLE django SET CLIENT_ENCODING TO 'UTF8';
+ALTER ROLE django SET default_transaction_isolation TO 'READ COMMITTED'; ALTER ROLE django SET TIME ZONE 'Asia/Yekaterinburg';

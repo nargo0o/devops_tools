@@ -1,0 +1,168 @@
+---
+- name: Update and upgrade apt packages
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install git
+  apt:
+    name: git
+    state: present
+
+- name: Python packages installation
+  apt:
+    pkg:
+      - python3
+      - python3-venv
+      - python3-pip
+      - uwsgi
+      - uwsgi-plugin-python
+    update_cache: yes
+    state: present
+  become: yes
+
+- name: Install django
+  pip:
+    name: django==3.2.5
+
+- name: Postgres installation
+  apt:
+    pkg:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+      - python-psycopg2
+    state: present
+  notify: Start postgres
+
+# Изменяем peer в посл столбце на trust
+- name: Configure postgres
+  template:
+    src: psql_config.j2
+    dest: /etc/postgresql/10/main/pg_hba.conf
+  become: yes
+  notify: Restart postgres
+
+- name: Create psql database
+  postgresql_db:
+    name: geekshop
+  become: yes
+  become_user: postgres
+
+- name: Create user
+  postgresql_user:
+    db:
+    name: django
+    password: 'geekbrains'
+    state: present
+  become: yes
+  become_user: postgres
+
+- name: Create directory
+  file:
+    path: "{{ project_path }}"
+    state: directory
+
+- name: clone a github project
+  git:
+    repo: https://github.com/nargo0o/devops_project.git
+    dest: "{{ project_path }}"
+    clone: yes
+    update: yes
+
+- name: Install virtualenv via pip
+  pip:
+    name: virtualenv
+    executable: pip3
+  become: yes
+  become_user: root
+
+- name: Install dependencies in venv
+  pip:
+    virtualenv: "{{ project_path }}/venv"
+    requirements: "{{ project_path }}/requirements.txt"
+
+- name: upgrade pip
+  shell: python3 -m pip install --upgrade pip
+
+- name: install setuptools
+  shell: pip3 install setuptools
+
+- name: upgrade setuptools
+  shell: pip3 install --upgrade setuptools
+
+- name: Install gunicorn
+  pip:
+    name: gunicorn
+    virtualenv: "{{ project_path }}/venv"
+
+- name: rights access
+  file:
+    path: "{{ project_path }}/tmp"
+    mode: 775
+    state: directory
+
+- name: Make migrations
+  shell: "/home/ubuntu/geekshop/venv/bin/python3 /home/ubuntu/geekshop/manage.py makemigrations"
+
+- name: Migrate database
+  django_manage:
+    app_path: "{{ project_path }}"
+    command: migrate
+    virtualenv: "{{ project_path }}/venv"
+
+- name: filling db with products
+  django_manage:
+    command: fill_db
+    app_path: "{{ project_path }}"
+    virtualenv: "{{ project_path }}/venv"
+
+# Настройка параметров Nginx
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: true
+  register: nginxinstalled
+  notify: start nginx
+
+- name: Add nginx cofig
+  when: nginxinstalled is success
+  template:
+    src: default.j2
+    dest: /etc/nginx/sites-available/geekshop
+  notify: restart nginx
+
+- name: Create root directory for nginx
+  when: nginxinstalled is success
+  file:
+    path: /usr/share/nginx/vhosts
+    mode: 775
+    state: directory
+  notify: restart nginx
+
+- name: Activate site
+  file:
+    src: /etc/nginx/sites-available/geekshop
+    dest: /etc/nginx/sites-enabled/geekshop
+    state: link
+  notify: restart nginx
+
+# Настройка веб-сервера
+- name: Configure gunicorn socket
+  template:
+    src: gunicorn.socket.j2
+    dest: /etc/systemd/system/gunicorn.socket
+  notify: enable and start gunicorn
+
+- name: Configure gunicorn
+  template:
+    src: gunicorn.j2
+    dest: /etc/systemd/system/gunicorn.service
+
+- name: restart gunicorn
+  systemd:
+    name: gunicorn
+    daemon_reload: yes
+    enabled: yes
+    state: restarted

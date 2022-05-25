@@ -1,0 +1,8 @@
+---
+- name: Provision jenkins
+  hosts: jenkins
+  gather_facts: false
+  become: true
+
+  roles:
+    - jenkins

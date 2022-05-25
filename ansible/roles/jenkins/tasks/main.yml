@@ -1,0 +1,43 @@
+---
+- name: Update and upgrade apt packages
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install git
+  apt:
+    name: git
+    state: present
+
+- name: Java installation
+  apt:
+    name: openjdk-11-jdk
+    state: present
+
+- name: add jenkins key
+  apt_key:
+    url: 'https://pkg.jenkins.io/debian-stable/jenkins.io.key'
+    state: present
+  become: yes
+
+- name: add jenkins repository
+  apt_repository:
+    repo: 'deb https://pkg.jenkins.io/debian-stable binary/'
+    state: present
+  become: yes
+
+- name: Update APT package manager repositories cache
+  become: true
+  apt:
+    update_cache: yes
+
+- name: Install jenkins
+  apt:
+    name: jenkins
+    update_cache: yes
+  become: yes
+
+- name: ensure jenkins is running
+  service:
+    name: jenkins
+    state: started
